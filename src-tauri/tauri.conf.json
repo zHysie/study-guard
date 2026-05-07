@@ -59,7 +59,6 @@
         "title": "",
         "url": "index.html?window=overlay",
         "decorations": false,
-        "fullscreen": true,
         "resizable": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,

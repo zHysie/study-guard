@@ -2,7 +2,6 @@
   "manifest_version": 3,
   "name": "学习守门员 URL Provider",
   "version": "0.1.0",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2ntz6f9F+YTMkSn/YlwSclGdafR8qr2V1RLZYx162eb5Rwt5l/XqBmhPGyrDy37HepVkRX6IOsaEaSfl37YCt6MDJZZj04vgxMoY/QRh65OrZd5o3O+5649KE6b9t9oDxHOMVG94I1N26/9THLALGKY2TEBTTyqli/jmRcPOLrBehCqu3X6YTsMhcPJ2rybBSjEnd9WNUGSgMPL10jDBJz4MSNsFGUyU5/t+z57lBZmBbfBw1yWYwCFi5BWIUpIaFJxYt38W0nelOlr2jrRs05EjdLERDyryyobSMbJNvbVOer80QpOVW2CEbVQP55Qav0Bj8fOJ/Z5/OUkoc2DoKQIDAQAB",
   "description": "把 Chrome/Edge 当前活动标签 URL 发送给学习守门员桌面端。",
   "permissions": ["tabs", "nativeMessaging"],
   "host_permissions": ["<all_urls>"],

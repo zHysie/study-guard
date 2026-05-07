@@ -84,6 +84,9 @@ export async function renderConfigUi(root: HTMLElement): Promise<void> {
 
             <div class="rules-layout">
               <section class="rule-group">
+                <h3>浏览器扩展</h3>
+                ${textField("extensionId", "扩展 ID")}
+
                 <h3>时间阈值</h3>
                 ${numberField("bannerDelaySeconds", "一级提醒延迟", "秒", 1, 600)}
                 <div class="two-col">
@@ -343,6 +346,7 @@ async function choosePath(targetId: string): Promise<void> {
 }
 
 function fillForm(config: AppConfig): void {
+  setInput("extensionId", config.extensionId);
   setTextArea("videoWhitelist", config.videoWhitelist);
   setTextArea("upWhitelist", config.upWhitelist);
   setTextArea("domainBlacklist", config.domainBlacklist);
@@ -366,6 +370,7 @@ async function saveConfig(): Promise<void> {
 
   const next: AppConfig = {
     ...currentConfig,
+    extensionId: readValue("extensionId"),
     videoWhitelist: readLines("videoWhitelist"),
     upWhitelist: readLines("upWhitelist"),
     domainBlacklist: readLines("domainBlacklist"),

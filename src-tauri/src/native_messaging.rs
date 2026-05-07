@@ -46,6 +46,17 @@ pub fn run_stdio_host() -> io::Result<()> {
     Ok(())
 }
 
+pub fn should_run_stdio_host<I, S>(args: I) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    args.into_iter().skip(1).any(|arg| {
+        let arg = arg.as_ref();
+        arg == "--native-messaging-host" || arg.starts_with("chrome-extension://")
+    })
+}
+
 fn handle_message_bytes(path: &Path, bytes: &[u8]) -> NativeResponse {
     match parse_incoming_url(bytes) {
         Ok(url) => match NativeUrlSnapshot::write(path, url.clone()) {
@@ -126,5 +137,18 @@ mod tests {
         let result = read_native_message(&mut bytes.as_slice()).expect("message read");
 
         assert_eq!(result, Some(payload.to_vec()));
+    }
+
+    #[test]
+    fn detects_browser_native_messaging_launch_arguments() {
+        assert!(should_run_stdio_host([
+            "study_guardian.exe",
+            "chrome-extension://abcdefghijklmnop/"
+        ]));
+        assert!(should_run_stdio_host([
+            "study_guardian.exe",
+            "--native-messaging-host"
+        ]));
+        assert!(!should_run_stdio_host(["study_guardian.exe"]));
     }
 }

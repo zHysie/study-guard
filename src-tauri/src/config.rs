@@ -4,6 +4,8 @@ use std::{fs, io, path::Path};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
+    #[serde(default)]
+    pub extension_id: String,
     pub video_whitelist: Vec<String>,
     pub up_whitelist: Vec<String>,
     pub domain_blacklist: Vec<String>,
@@ -24,6 +26,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            extension_id: String::new(),
             video_whitelist: Vec::new(),
             up_whitelist: Vec::new(),
             domain_blacklist: vec!["xiaohongshu.com".into(), "douyin.com".into()],
@@ -51,6 +54,7 @@ impl AppConfig {
             .into_iter()
             .map(|domain| domain.trim_start_matches('.').to_ascii_lowercase())
             .collect();
+        self.extension_id = sanitize_extension_id(&self.extension_id);
 
         if !self.domain_blacklist.iter().any(|d| d == "xiaohongshu.com") {
             self.domain_blacklist.push("xiaohongshu.com".into());
@@ -103,6 +107,19 @@ fn sanitize_list(values: Vec<String>) -> Vec<String> {
         .collect()
 }
 
+fn sanitize_extension_id(value: &str) -> String {
+    let mut id = value.trim().to_ascii_lowercase();
+    if let Some(rest) = id.strip_prefix("chrome-extension://") {
+        id = rest.trim_end_matches('/').to_string();
+    }
+
+    if id.len() == 32 && id.chars().all(|ch| ('a'..='p').contains(&ch)) {
+        id
+    } else {
+        String::new()
+    }
+}
+
 fn clamp_minutes(value: u32) -> u32 {
     value.clamp(1, 60)
 }
@@ -136,6 +153,17 @@ mod tests {
         assert_eq!(config.banner_delay_seconds, 1);
         assert_eq!(config.overlay_sound_pause_minutes, 1);
         assert_eq!(config.check_interval_seconds, 2);
+    }
+
+    #[test]
+    fn extension_id_is_trimmed_and_normalized() {
+        let config = AppConfig {
+            extension_id: " chrome-extension://NIILFGNHLFENPEGLELBDJMKBACNLOGLJ/ ".into(),
+            ..AppConfig::default()
+        }
+        .sanitized();
+
+        assert_eq!(config.extension_id, "niilfgnhlfenpeglelbdjmkbacnloglj");
     }
 
     #[test]

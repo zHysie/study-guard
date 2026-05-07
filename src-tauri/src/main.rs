@@ -4,7 +4,7 @@ use std::sync::Arc;
 use study_guardian::{
     config::{self, AppConfig},
     monitor::{self, AppState, MonitorStatus},
-    native_messaging, paths, tray, windows,
+    native_host, native_messaging, paths, tray, windows,
 };
 use tauri::Manager;
 
@@ -22,6 +22,9 @@ fn save_config(
     let sanitized =
         config::save_to_path(&state.config_path, &config).map_err(|err| err.to_string())?;
     *state.config.lock().map_err(|err| err.to_string())? = sanitized.clone();
+    if let Some(config_dir) = state.config_path.parent() {
+        native_host::ensure_registered(config_dir, &sanitized);
+    }
     monitor::evaluate_once(&app, state.inner());
     Ok(sanitized)
 }
@@ -75,7 +78,7 @@ fn set_paused(
 }
 
 fn main() {
-    if std::env::args().any(|arg| arg == "--native-messaging-host") {
+    if native_messaging::should_run_stdio_host(std::env::args()) {
         if let Err(err) = native_messaging::run_stdio_host() {
             eprintln!("native messaging host failed: {err}");
         }
@@ -86,7 +89,7 @@ fn main() {
     let config_path = config_dir.join("config.json");
     let config = config::load_or_default(&config_path).expect("failed to load app config");
     let native_url_path = monitor::default_native_url_path(&config_path);
-    let state = Arc::new(AppState::new(config_path, config, native_url_path));
+    let state = Arc::new(AppState::new(config_path, config.clone(), native_url_path));
     let setup_state = state.clone();
 
     tauri::Builder::default()
@@ -100,7 +103,7 @@ fn main() {
         }))
         .manage(state)
         .setup(move |app| {
-            study_guardian::native_host::ensure_registered(&config_dir);
+            study_guardian::native_host::ensure_registered(&config_dir, &config);
             if let Some(window) = app.get_webview_window("main") {
                 let w = window.clone();
                 window.on_window_event(move |event| {

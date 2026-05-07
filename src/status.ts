@@ -12,6 +12,7 @@ export interface MonitorStatus {
 }
 
 export interface AppConfig {
+  extensionId: string;
   videoWhitelist: string[];
   upWhitelist: string[];
   domainBlacklist: string[];

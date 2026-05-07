@@ -100,6 +100,7 @@ fn main() {
         }))
         .manage(state)
         .setup(move |app| {
+            study_guardian::native_host::ensure_registered(&config_dir);
             if let Some(window) = app.get_webview_window("main") {
                 let w = window.clone();
                 window.on_window_event(move |event| {

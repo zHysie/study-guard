@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "学习守门员 URL Provider",
+  "version": "0.1.0",
+  "description": "把 Chrome/Edge 当前活动标签 URL 发送给学习守门员桌面端。",
+  "permissions": ["tabs", "nativeMessaging"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

@@ -23,6 +23,13 @@ enum AudioAction {
     StopOverlay,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReminderEffect {
+    StartOverlayAudio,
+    ApplyReminder,
+    StopOverlayAudio,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct MonitorStatus {
@@ -131,14 +138,17 @@ pub fn evaluate_once(app: &AppHandle, state: &Arc<AppState>) -> MonitorStatus {
 
     let mut previous = state.status.lock().expect("status lock poisoned");
     if *previous != next_status {
-        let audio_action = audio_action(previous.active_reminder, active_reminder);
+        let effects = reminder_effects(previous.active_reminder, active_reminder);
         *previous = next_status.clone();
         let _ = app.emit("monitor-status-changed", &next_status);
-        windows::apply_reminder(app, active_reminder, &config);
-        match audio_action {
-            AudioAction::None => {}
-            AudioAction::StartOverlay => audio::start_overlay_audio(&config),
-            AudioAction::StopOverlay => audio::stop_overlay_audio(),
+        for effect in effects {
+            match effect {
+                ReminderEffect::StartOverlayAudio => audio::start_overlay_audio(&config),
+                ReminderEffect::ApplyReminder => {
+                    windows::apply_reminder(app, active_reminder, &config)
+                }
+                ReminderEffect::StopOverlayAudio => audio::stop_overlay_audio(),
+            }
         }
     }
 
@@ -151,6 +161,20 @@ fn audio_action(previous: ActiveReminder, next: ActiveReminder) -> AudioAction {
         (_, ActiveReminder::Overlay) => AudioAction::StartOverlay,
         (ActiveReminder::Overlay, _) => AudioAction::StopOverlay,
         _ => AudioAction::None,
+    }
+}
+
+fn reminder_effects(previous: ActiveReminder, next: ActiveReminder) -> Vec<ReminderEffect> {
+    match audio_action(previous, next) {
+        AudioAction::StartOverlay => vec![
+            ReminderEffect::StartOverlayAudio,
+            ReminderEffect::ApplyReminder,
+        ],
+        AudioAction::StopOverlay => vec![
+            ReminderEffect::StopOverlayAudio,
+            ReminderEffect::ApplyReminder,
+        ],
+        AudioAction::None => vec![ReminderEffect::ApplyReminder],
     }
 }
 
@@ -195,6 +219,17 @@ mod tests {
         assert_eq!(
             audio_action(ActiveReminder::Overlay, ActiveReminder::None),
             AudioAction::StopOverlay
+        );
+    }
+
+    #[test]
+    fn entering_overlay_starts_audio_before_showing_window() {
+        assert_eq!(
+            reminder_effects(ActiveReminder::Banner, ActiveReminder::Overlay),
+            vec![
+                ReminderEffect::StartOverlayAudio,
+                ReminderEffect::ApplyReminder
+            ]
         );
     }
 }

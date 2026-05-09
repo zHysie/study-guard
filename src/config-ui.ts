@@ -100,10 +100,6 @@ export async function renderConfigUi(root: HTMLElement): Promise<void> {
                   <input id="overlaySoundEnabled" type="checkbox" />
                 </label>
                 ${textField("overlayVoiceText", "默认朗读文案")}
-                <div class="two-col">
-                  ${numberField("overlaySoundBurstSeconds", "连续朗读时间", "秒", 1, 600)}
-                  ${numberField("overlaySoundPauseMinutes", "朗读暂停时间", "分钟", 1, 60)}
-                </div>
                 ${pathField("overlaySoundPath", "二级提醒音效路径")}
               </section>
 
@@ -359,8 +355,6 @@ function fillForm(config: AppConfig): void {
   setChecked("overlaySoundEnabled", config.overlaySoundEnabled);
   setInput("overlaySoundPath", config.overlaySoundPath);
   setInput("overlayVoiceText", config.overlayVoiceText);
-  setInput("overlaySoundBurstSeconds", String(config.overlaySoundBurstSeconds));
-  setInput("overlaySoundPauseMinutes", String(config.overlaySoundPauseMinutes));
 }
 
 async function saveConfig(): Promise<void> {
@@ -383,8 +377,6 @@ async function saveConfig(): Promise<void> {
     overlaySoundEnabled: (byId("overlaySoundEnabled") as HTMLInputElement).checked,
     overlaySoundPath: readValue("overlaySoundPath"),
     overlayVoiceText: readValue("overlayVoiceText"),
-    overlaySoundBurstSeconds: readNumber("overlaySoundBurstSeconds"),
-    overlaySoundPauseMinutes: readNumber("overlaySoundPauseMinutes"),
   };
 
   currentConfig = await invoke<AppConfig>("save_config", { config: next });

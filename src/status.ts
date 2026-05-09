@@ -26,8 +26,6 @@ export interface AppConfig {
   overlaySoundEnabled: boolean;
   overlaySoundPath: string;
   overlayVoiceText: string;
-  overlaySoundBurstSeconds: number;
-  overlaySoundPauseMinutes: number;
 }
 
 export const classificationText: Record<Classification, string> = {

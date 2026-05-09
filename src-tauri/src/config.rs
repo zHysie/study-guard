@@ -19,8 +19,6 @@ pub struct AppConfig {
     pub overlay_sound_enabled: bool,
     pub overlay_sound_path: String,
     pub overlay_voice_text: String,
-    pub overlay_sound_burst_seconds: u32,
-    pub overlay_sound_pause_minutes: u32,
 }
 
 impl Default for AppConfig {
@@ -40,8 +38,6 @@ impl Default for AppConfig {
             overlay_sound_enabled: true,
             overlay_sound_path: String::new(),
             overlay_voice_text: "快点学习！".into(),
-            overlay_sound_burst_seconds: 30,
-            overlay_sound_pause_minutes: 3,
         }
     }
 }
@@ -66,9 +62,7 @@ impl AppConfig {
         self.idle_minutes = clamp_minutes(self.idle_minutes);
         self.overlay_distracting_minutes = clamp_minutes(self.overlay_distracting_minutes);
         self.banner_delay_seconds = self.banner_delay_seconds.clamp(1, 600);
-        self.overlay_sound_pause_minutes = clamp_minutes(self.overlay_sound_pause_minutes);
         self.check_interval_seconds = 2;
-        self.overlay_sound_burst_seconds = self.overlay_sound_burst_seconds.clamp(1, 600);
         self
     }
 }
@@ -143,7 +137,6 @@ mod tests {
             overlay_distracting_minutes: 99,
             banner_delay_seconds: 0,
             check_interval_seconds: 30,
-            overlay_sound_pause_minutes: 0,
             ..AppConfig::default()
         }
         .sanitized();
@@ -151,7 +144,6 @@ mod tests {
         assert_eq!(config.idle_minutes, 1);
         assert_eq!(config.overlay_distracting_minutes, 60);
         assert_eq!(config.banner_delay_seconds, 1);
-        assert_eq!(config.overlay_sound_pause_minutes, 1);
         assert_eq!(config.check_interval_seconds, 2);
     }
 

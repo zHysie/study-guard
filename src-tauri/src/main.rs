@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 use study_guardian::{
+    audio,
     config::{self, AppConfig},
     monitor::{self, AppState, MonitorStatus},
     native_host, native_messaging, paths, tray, windows,
@@ -65,11 +66,13 @@ fn test_overlay(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     let config = state.config.lock().map_err(|err| err.to_string())?.clone();
+    audio::start_overlay_audio(&config);
     windows::show_overlay(&app, &config)
 }
 
 #[tauri::command]
 fn close_overlay_for_test(app: tauri::AppHandle) -> Result<(), String> {
+    audio::stop_overlay_audio();
     windows::close_overlay(&app)
 }
 

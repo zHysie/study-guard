@@ -24,10 +24,6 @@ pub fn classify_url(current_url: Option<&str>, config: &AppConfig) -> Classifica
         return Classification::Waiting;
     }
 
-    if matches_blacklist_domain(&host, &config.domain_blacklist) {
-        return Classification::Distracting;
-    }
-
     if is_bilibili_host(&host) {
         if matches_any(raw_url, &config.video_whitelist)
             || matches_any(raw_url, &config.up_whitelist)
@@ -37,6 +33,10 @@ pub fn classify_url(current_url: Option<&str>, config: &AppConfig) -> Classifica
             Classification::Distracting
         }
     } else {
+        if matches_blacklist_domain(&host, &config.domain_blacklist) {
+            return Classification::Distracting;
+        }
+
         Classification::Waiting
     }
 }
@@ -72,6 +72,19 @@ mod tests {
         };
 
         let result = classify_url(Some("https://www.bilibili.com/video/BV1abc/?p=1"), &config);
+
+        assert_eq!(result, Classification::Studying);
+    }
+
+    #[test]
+    fn bilibili_video_whitelist_overrides_domain_blacklist() {
+        let config = AppConfig {
+            video_whitelist: vec!["BV1PzwvzhE4P".into()],
+            domain_blacklist: vec!["bilibili.com".into()],
+            ..AppConfig::default()
+        };
+
+        let result = classify_url(Some("https://www.bilibili.com/video/BV1PzwvzhE4P"), &config);
 
         assert_eq!(result, Classification::Studying);
     }

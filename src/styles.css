@@ -706,7 +706,7 @@ html.banner-html #app {
 
 .banner-root {
   width: 100vw;
-  height: 72px;
+  height: 92px;
   background: rgba(0, 0, 0, 0) !important;
 }
 
@@ -716,7 +716,7 @@ html.banner-html #app {
   align-items: center;
   justify-content: center;
   width: 100vw;
-  height: 72px;
+  height: 92px;
   border-bottom: 0;
   color: rgba(255, 255, 255, 0.5);
   background: rgba(0, 0, 0, 0) !important;
@@ -733,10 +733,10 @@ html.banner-html #app {
 
 .banner-reminder::before {
   position: absolute;
-  inset: 4px 0 16px;
+  inset: 2px 0 8px;
   z-index: -1;
   content: "";
-  background: rgba(232, 64, 42, 0.3);
+  background: rgba(232, 64, 42, 0.34);
 }
 
 .overlay-body {
@@ -790,21 +790,21 @@ html.overlay-html #app {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: 32px 18px;
-  width: 120vw;
-  min-height: 120vh;
-  padding: 42px;
-  transform: rotate(-15deg) translate(-8vw, -8vh);
+  grid-template-columns: repeat(6, minmax(170px, 1fr));
+  gap: 18px 10px;
+  width: 132vw;
+  min-height: 132vh;
+  padding: 28px;
+  transform: rotate(-15deg) translate(-12vw, -12vh);
   user-select: none;
   -webkit-user-select: none;
 }
 
 .watermark-grid span {
   color: rgba(255, 255, 255, 0.5);
-  font-size: 42px;
+  font-size: 38px;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1;
   text-align: center;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
   user-select: none;

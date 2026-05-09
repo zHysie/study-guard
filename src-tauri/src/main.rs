@@ -15,17 +15,23 @@ fn get_config(state: tauri::State<'_, Arc<AppState>>) -> Result<AppConfig, Strin
 
 #[tauri::command]
 fn save_config(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
     config: AppConfig,
 ) -> Result<AppConfig, String> {
     let sanitized =
         config::save_to_path(&state.config_path, &config).map_err(|err| err.to_string())?;
-    *state.config.lock().map_err(|err| err.to_string())? = sanitized.clone();
+    let previous = {
+        let mut current = state.config.lock().map_err(|err| err.to_string())?;
+        let previous = current.clone();
+        *current = sanitized.clone();
+        previous
+    };
     if let Some(config_dir) = state.config_path.parent() {
-        native_host::ensure_registered(config_dir, &sanitized);
+        if native_host::should_register_after_save(config_dir, &previous, &sanitized) {
+            native_host::ensure_registered(config_dir, &sanitized);
+        }
     }
-    monitor::evaluate_once(&app, state.inner());
     Ok(sanitized)
 }
 
@@ -103,7 +109,7 @@ fn main() {
         }))
         .manage(state)
         .setup(move |app| {
-            study_guardian::native_host::ensure_registered(&config_dir, &config);
+            study_guardian::native_host::refresh_registration(&config_dir, &config);
             if let Some(window) = app.get_webview_window("main") {
                 let w = window.clone();
                 window.on_window_event(move |event| {

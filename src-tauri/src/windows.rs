@@ -48,7 +48,7 @@ fn show_banner_on_active_monitor(app: &AppHandle) {
     let pos = monitor.position();
     let size = monitor.size();
     let _ = window.set_position(PhysicalPosition::new(pos.x, pos.y));
-    let _ = window.set_size(PhysicalSize::new(size.width, 72));
+    let _ = window.set_size(PhysicalSize::new(size.width, 92));
     let _ = window.set_ignore_cursor_events(true);
     let _ = window.show();
 }

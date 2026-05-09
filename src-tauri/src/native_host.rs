@@ -3,7 +3,6 @@ use std::{
     collections::HashSet,
     fs, io,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 const HOST_NAME: &str = "com.local.study_guardian";
@@ -31,17 +30,69 @@ pub fn ensure_registered(config_dir: &Path, config: &AppConfig) {
         }
     };
 
+    let manifest_changed = match write_manifest_if_changed(&manifest_path, &host_exe, &ids) {
+        Ok(changed) => changed,
+        Err(err) => {
+            eprintln!("failed to write native host manifest: {err}");
+            return;
+        }
+    };
+
+    if !manifest_changed {
+        return;
+    }
+
+    register_browsers(&ids, &manifest_path);
+}
+
+pub fn should_register_after_save(
+    config_dir: &Path,
+    previous: &AppConfig,
+    current: &AppConfig,
+) -> bool {
+    previous.extension_id != current.extension_id || !native_host_manifest_path(config_dir).exists()
+}
+
+pub fn native_host_manifest_path(config_dir: &Path) -> PathBuf {
+    config_dir.join("native-messaging-host.json")
+}
+
+fn register_browsers(ids: &[ExtensionInfo], manifest_path: &Path) {
+    let mut registered = HashSet::new();
+    for browser in ids.iter().map(|info| info.browser.as_str()) {
+        if registered.insert(browser) {
+            if let Err(err) = register_for(browser, manifest_path) {
+                eprintln!("failed to register native host for {browser}: {err}");
+            }
+        }
+    }
+}
+
+pub fn refresh_registration(config_dir: &Path, config: &AppConfig) {
+    let ids = if config.extension_id.is_empty() {
+        find_extension_ids()
+    } else {
+        extension_infos_for_manual_id(&config.extension_id)
+    };
+    if ids.is_empty() {
+        return;
+    }
+
+    let manifest_path = native_host_manifest_path(config_dir);
+    let host_exe = match native_host_exe_path() {
+        Ok(path) => path,
+        Err(err) => {
+            eprintln!("failed to resolve native host executable: {err}");
+            return;
+        }
+    };
+
     if let Err(err) = write_manifest(&manifest_path, &host_exe, &ids) {
         eprintln!("failed to write native host manifest: {err}");
         return;
     }
 
-    let mut registered = HashSet::new();
-    for browser in ids.iter().map(|info| info.browser.as_str()) {
-        if registered.insert(browser) {
-            register_for(browser, &manifest_path);
-        }
-    }
+    register_browsers(&ids, &manifest_path);
 }
 
 #[derive(Debug)]
@@ -158,6 +209,19 @@ fn write_manifest(path: &Path, exe: &Path, ids: &[ExtensionInfo]) -> io::Result<
     fs::write(path, manifest)
 }
 
+fn write_manifest_if_changed(path: &Path, exe: &Path, ids: &[ExtensionInfo]) -> io::Result<bool> {
+    let manifest = manifest_contents(exe, ids);
+    if path.exists() && fs::read_to_string(path).is_ok_and(|current| current == manifest) {
+        return Ok(false);
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, manifest)?;
+    Ok(true)
+}
+
 fn manifest_contents(exe: &Path, ids: &[ExtensionInfo]) -> String {
     let exe_path = exe.to_string_lossy().replace('\\', "\\\\");
     let origins: Vec<String> = ids
@@ -182,27 +246,65 @@ fn manifest_contents(exe: &Path, ids: &[ExtensionInfo]) -> String {
     )
 }
 
-fn register_for(browser: &str, manifest_path: &PathBuf) {
-    let reg_key = format!(
-        r"HKCU\Software\{}\NativeMessagingHosts\{}",
+fn registry_subkey_for(browser: &str) -> String {
+    format!(
+        r"Software\{}\NativeMessagingHosts\{}",
         if browser == "Chrome" {
             r"Google\Chrome"
         } else {
             r"Microsoft\Edge"
         },
         HOST_NAME
-    );
+    )
+}
 
-    let _ = Command::new("reg.exe")
-        .args([
-            "add",
-            &reg_key,
-            "/ve",
-            "/d",
-            &manifest_path.to_string_lossy(),
-            "/f",
-        ])
-        .output();
+#[cfg(windows)]
+fn register_for(browser: &str, manifest_path: &Path) -> io::Result<()> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, REG_SZ,
+    };
+
+    let registry_subkey = registry_subkey_for(browser);
+    let subkey = wide_null(std::ffi::OsStr::new(&registry_subkey));
+    let mut key = HKEY::default();
+    unsafe {
+        RegCreateKeyW(HKEY_CURRENT_USER, PCWSTR(subkey.as_ptr()), &mut key)
+            .ok()
+            .map_err(windows_error)?;
+    }
+
+    let path = wide_null(manifest_path.as_os_str());
+    let bytes = unsafe {
+        std::slice::from_raw_parts(
+            path.as_ptr().cast::<u8>(),
+            path.len() * std::mem::size_of::<u16>(),
+        )
+    };
+    let result = unsafe { RegSetValueExW(key, PCWSTR::null(), 0, REG_SZ, Some(bytes)) }
+        .ok()
+        .map_err(windows_error);
+    unsafe {
+        let _ = RegCloseKey(key);
+    }
+    result
+}
+
+#[cfg(not(windows))]
+fn register_for(_browser: &str, _manifest_path: &Path) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+fn wide_null(value: &std::ffi::OsStr) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+
+    value.encode_wide().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(windows)]
+fn windows_error(err: windows::core::Error) -> io::Error {
+    io::Error::new(io::ErrorKind::Other, err.to_string())
 }
 
 #[cfg(test)]
@@ -320,5 +422,71 @@ mod tests {
         assert!(ids
             .iter()
             .any(|info| info.browser == "Edge" && info.id == "niilfgnhlfenpeglelbdjmkbacnloglj"));
+    }
+
+    #[test]
+    fn unchanged_manifest_does_not_request_registration_work() {
+        let dir = unique_temp_dir("manifest");
+        let manifest_path = dir.join("native-messaging-host.json");
+        let ids = vec![ExtensionInfo {
+            browser: "Chrome".into(),
+            id: "niilfgnhlfenpeglelbdjmkbacnloglj".into(),
+        }];
+        let exe = std::path::Path::new(r"C:\Apps\study_guardian_native_host.exe");
+
+        assert!(write_manifest_if_changed(&manifest_path, exe, &ids).expect("first write"));
+        assert!(!write_manifest_if_changed(&manifest_path, exe, &ids).expect("second write"));
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn save_skips_registration_when_extension_id_is_unchanged_and_manifest_exists() {
+        let dir = unique_temp_dir("save");
+        fs::create_dir_all(&dir).expect("create config dir");
+        fs::write(native_host_manifest_path(&dir), "{}").expect("write manifest");
+        let previous = AppConfig {
+            extension_id: "niilfgnhlfenpeglelbdjmkbacnloglj".into(),
+            ..AppConfig::default()
+        };
+        let current = AppConfig {
+            idle_minutes: 15,
+            ..previous.clone()
+        };
+
+        assert!(!should_register_after_save(&dir, &previous, &current));
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn save_registers_when_extension_id_changes() {
+        let dir = unique_temp_dir("save_change");
+        fs::create_dir_all(&dir).expect("create config dir");
+        fs::write(native_host_manifest_path(&dir), "{}").expect("write manifest");
+        let previous = AppConfig {
+            extension_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            ..AppConfig::default()
+        };
+        let current = AppConfig {
+            extension_id: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+            ..previous.clone()
+        };
+
+        assert!(should_register_after_save(&dir, &previous, &current));
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn registry_subkey_targets_browser_native_messaging_host() {
+        assert_eq!(
+            registry_subkey_for("Chrome"),
+            r"Software\Google\Chrome\NativeMessagingHosts\com.local.study_guardian"
+        );
+        assert_eq!(
+            registry_subkey_for("Edge"),
+            r"Software\Microsoft\Edge\NativeMessagingHosts\com.local.study_guardian"
+        );
     }
 }
